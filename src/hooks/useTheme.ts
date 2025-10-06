@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { THEME_CONFIG, STORAGE_KEYS } from "../constants/routes";
+import { THEME_CONFIG, STORAGE_KEYS } from "../configs";
 
 type Theme = (typeof THEME_CONFIG.THEMES)[number];
 

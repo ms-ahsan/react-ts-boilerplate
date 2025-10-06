@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { User, AuthState } from "../types";
+import type { User, AuthState } from "../types";
 import { useLocalStorage } from "./useLocalStorage";
-import { STORAGE_KEYS } from "../constants/routes";
+import { STORAGE_KEYS } from "../configs";
 
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
