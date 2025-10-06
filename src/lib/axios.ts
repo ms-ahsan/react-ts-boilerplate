@@ -1,20 +1,24 @@
-import axios, {
+/* eslint-disable no-case-declarations */
+import axios from "axios";
+import type {
   AxiosInstance,
   AxiosRequestConfig,
   AxiosResponse,
   AxiosError,
+  InternalAxiosRequestConfig,
 } from "axios";
 import { API_CONFIG, HTTP_STATUS, ERROR_MESSAGES } from "../configs";
 
 // Create a custom error class for API errors
 export class ApiError extends Error {
-  constructor(
-    message: string,
-    public status?: number,
-    public data?: any,
-  ) {
+  public status?: number;
+  public data?: unknown;
+
+  constructor(message: string, status?: number, data?: unknown) {
     super(message);
     this.name = "ApiError";
+    this.status = status;
+    this.data = data;
   }
 }
 
@@ -25,18 +29,23 @@ const axiosInstance: AxiosInstance = axios.create({
   headers: API_CONFIG.HEADERS,
 });
 
+//Custom type: extend InternalAxiosRequestConfig
+interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
+  metadata?: {
+    startTime: Date;
+  };
+}
+
 // Request interceptor
 axiosInstance.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config: CustomAxiosRequestConfig) => {
     // Add auth token if available
     const authData = localStorage.getItem("auth");
     if (authData) {
       const { user } = JSON.parse(authData);
       if (user?.token) {
-        config.headers = {
-          ...config.headers,
-          Authorization: `Bearer ${user.token}`,
-        };
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${user.token}`;
       }
     }
 
@@ -60,7 +69,8 @@ axiosInstance.interceptors.response.use(
   (response: AxiosResponse) => {
     // Calculate request duration
     const endTime = new Date();
-    const startTime = response.config.metadata?.startTime;
+    const startTime = (response.config as CustomAxiosRequestConfig).metadata
+      ?.startTime;
     const duration = startTime ? endTime.getTime() - startTime.getTime() : 0;
 
     console.log(
@@ -101,8 +111,11 @@ axiosInstance.interceptors.response.use(
 
       default:
         // Use server-provided error message if available
+        const safeData = (data || {}) as Record<string, unknown>;
         const message =
-          data?.message || data?.error || ERROR_MESSAGES.UNKNOWN_ERROR;
+          (safeData.message as string) ||
+          (safeData.error as string) ||
+          ERROR_MESSAGES.UNKNOWN_ERROR;
         throw new ApiError(message, status, data);
     }
   },
@@ -135,11 +148,12 @@ export const apiRequest = async <T = any>(
     return response.data;
   } catch (error) {
     const apiError = handleApiError(error);
+    const status = apiError.status ?? 0;
 
     // Retry logic for specific errors
     if (
       retryCount < API_CONFIG.RETRY_ATTEMPTS &&
-      (apiError.status >= 500 || apiError.status === 0)
+      (status >= 500 || status === 0)
     ) {
       console.log(
         `[API Retry] Attempt ${retryCount + 1}/${API_CONFIG.RETRY_ATTEMPTS}`,
